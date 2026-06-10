@@ -1,12 +1,586 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta http-equiv="refresh" content="0; url=https://sanctuarypartners.llc/voicemode" />
-<link rel="canonical" href="https://sanctuarypartners.llc/voicemode" />
-<title>VoiceMode</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<title>VoiceMode — On-device voice dictation for Mac</title>
+<meta name="description" content="Press a key, speak, and your words appear in any app. 100% on-device. Your voice never leaves your Mac. Buy once — $50." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    color-scheme:dark;
+    --bg:#000000;
+    --bg-soft:#0a0a0c;
+    --ink:#EDE9E0;        /* warm white */
+    --muted:#8c887f;
+    --line:rgba(237,233,224,.10);
+    --cyan:#6EE7F0;
+    --violet:#A78BFA;
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);}
+  body{
+    font-family:"Geist",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    line-height:1.5;
+  }
+  ::selection{background:var(--violet);color:#0a0a0c;}
+
+  /* ---------- top nav ---------- */
+  .nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px clamp(20px,5vw,56px);
+    mix-blend-mode:difference;
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-family:"Geist";font-weight:600;letter-spacing:-.01em;font-size:18px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%,var(--cyan),var(--violet));
+    box-shadow:0 0 14px var(--violet);}
+  .nav a.buy{
+    font-family:"Geist";font-weight:600;font-size:14px;
+    color:var(--ink);text-decoration:none;border:1px solid var(--ink);
+    padding:9px 16px;border-radius:999px;
+  }
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;height:100svh;width:100%;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(52% 38% at 50% 40%, rgba(110,231,240,.06), transparent 68%),
+      radial-gradient(44% 34% at 50% 44%, rgba(167,139,250,.07), transparent 70%);}
+  #field{position:absolute;inset:0;display:block;z-index:1}
+  .nav,.hero-lower{z-index:2}
+  .hero-lower{                       /* JS sets top to centre this block below "It types." */
+    position:absolute;left:0;right:0;top:80%;transform:translateY(-50%);
+    display:flex;flex-direction:column;align-items:center;text-align:center;
+    padding:0 24px;pointer-events:none;
+  }
+  .hero-tagline{
+    position:absolute;left:0;right:0;top:calc(54% - 50px);z-index:2;pointer-events:none;text-align:center;
+    padding:0 24px;opacity:0;font-family:"Geist";line-height:1.32;
+  }
+  .hero-tagline span{display:block;font-size:clamp(22px,3vw,40px);color:var(--muted)}
+  .hero-tagline b{color:var(--ink);font-weight:600}
+  .hero-sub{
+    max-width:720px;font-size:clamp(15px,1.4vw,18px);color:var(--muted);
+    opacity:0;transform:translateY(14px);
+  }
+  .hero-sub b{color:var(--ink);font-weight:600}
+  .cta-row{display:flex;gap:14px;align-items:center;margin-top:26px;opacity:0;transform:translateY(14px);pointer-events:auto;flex-wrap:wrap;justify-content:center}
+  .btn{
+    font-family:"Geist";font-weight:600;font-size:15px;text-decoration:none;
+    padding:14px 26px;border-radius:999px;transition:transform .25s,box-shadow .25s,background .25s;
+  }
+  .btn-primary{
+    background:var(--ink);color:#08080a;
+    box-shadow:0 0 0 1px var(--ink), 0 8px 40px -8px rgba(167,139,250,.5);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--ink),0 14px 50px -8px rgba(167,139,250,.7)}
+  .btn-ghost{color:var(--ink);border:1px solid var(--line);background:transparent}
+  .btn-ghost:hover{border-color:var(--ink)}
+  .price-pill{font-family:"Geist";color:var(--muted);font-size:13px;letter-spacing:.02em}
+  .price-pill s{opacity:.5}
+
+  .scroll-hint{
+    margin-top:38px;
+    font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);
+    opacity:0;animation:fadein 1s ease 10.7s forwards;
+  }
+  @keyframes fadein{to{opacity:.7}}
+
+  /* ---------- manifesto ---------- */
+  .manifesto{padding:18vh clamp(20px,6vw,80px);max-width:var(--maxw);margin:0 auto}
+  .beat{min-height:62vh;display:flex;flex-direction:column;justify-content:center;border-top:1px solid var(--line);padding:8vh 0}
+  .beat:first-child{border-top:none}
+  .beat .kicker{font-family:"Geist";font-weight:600;font-size:clamp(15px,1.6vw,19px);letter-spacing:.16em;text-transform:uppercase;color:var(--violet);margin-bottom:24px}
+  .beat h2{
+    font-family:"Geist";font-weight:700;letter-spacing:-.03em;line-height:.98;
+    font-size:clamp(44px,8.5vw,128px);
+  }
+  .beat h2 .fade{color:var(--muted)}
+  .beat p{margin-top:26px;max-width:520px;font-size:clamp(16px,1.5vw,19px);color:var(--muted)}
+  .beat p b{color:var(--ink);font-weight:600}
+  .reveal-line{display:block;overflow:hidden}
+  .reveal-line > span{display:block;transform:translateY(110%)}
+
+  /* ---------- pricing ---------- */
+  .pricing{padding:14vh clamp(20px,6vw,80px) 18vh;display:flex;justify-content:center}
+  .card{
+    width:min(520px,100%);border:1px solid var(--line);border-radius:24px;
+    padding:48px 44px;text-align:center;position:relative;overflow:hidden;
+    background:linear-gradient(180deg,rgba(255,255,255,.025),transparent);
+  }
+  .card::before{content:"";position:absolute;inset:-1px;border-radius:24px;padding:1px;
+    background:linear-gradient(140deg,rgba(110,231,240,.5),transparent 40%,rgba(167,139,250,.5));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;opacity:.7;pointer-events:none}
+  .card .eyebrow{font-family:"Geist";font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  .card .num{font-family:"Geist";font-weight:700;font-size:clamp(64px,11vw,104px);letter-spacing:-.04em;margin:14px 0 4px}
+  .card .num span{font-size:.4em;vertical-align:super;color:var(--muted)}
+  .card .once{color:var(--violet);font-family:"Geist";font-weight:600;letter-spacing:.02em}
+  .card ul{list-style:none;margin:30px 0;text-align:left;display:inline-block}
+  .card li{padding:9px 0;color:var(--muted);display:flex;gap:12px;align-items:flex-start}
+  .card li b{color:var(--ink);font-weight:600}
+  .card li::before{content:"";flex:0 0 auto;width:18px;height:18px;margin-top:2px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,var(--cyan),var(--violet));box-shadow:0 0 10px rgba(167,139,250,.5)}
+  .card .btn-primary{display:inline-block;margin-top:8px}
+  .compare{margin-top:18px;font-size:13px;color:var(--muted)}
+
+  footer{padding:60px;text-align:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  footer .brand{justify-content:center;margin-bottom:14px;color:#fff}
+
+  @media (prefers-reduced-motion: reduce){
+    .reveal-line > span{transform:none!important}
+  }
+</style>
 </head>
 <body>
-<a href="https://sanctuarypartners.llc/voicemode">Redirecting...</a>
+
+  <nav class="nav">
+    <div class="brand"><span class="dot"></span>VoiceMode</div>
+    <a class="buy" href="#pricing">Buy — $50</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <canvas id="field"></canvas>
+    <div class="hero-tagline" id="heroTagline">
+      <span>Private, on-device dictation for Mac.</span>
+      <span><b>No cloud. No subscription.</b></span>
+    </div>
+    <div class="hero-lower" id="heroLower">
+      <p class="hero-sub" id="heroSub">Press one key and speak. Your words appear in <b>any app</b> — <b>3&times; faster</b>.</p>
+      <div class="cta-row" id="ctaRow">
+        <a class="btn btn-primary" href="#pricing">Buy once — $50</a>
+        <a class="btn btn-ghost" href="#how">See it work</a>
+        <span class="price-pill">vs. <s>$15/mo</s> forever</span>
+      </div>
+      <div class="scroll-hint">scroll</div>
+    </div>
+  </section>
+
+  <!-- MANIFESTO -->
+  <section class="manifesto" id="how">
+    <div class="beat">
+      <div class="kicker">Works everywhere</div>
+      <h2><span class="reveal-line"><span>Just talk.</span></span><span class="reveal-line"><span class="fade">Any app.</span></span></h2>
+      <p>Speak into Notes, Slack, your code editor, the address bar — <b>anywhere you can type, you can talk</b>. Nothing to set up, no commands to memorize, eight languages, your words landing as you go.</p>
+    </div>
+
+    <div class="beat">
+      <div class="kicker">Private by design</div>
+      <h2><span class="reveal-line"><span class="fade">Your data stays</span></span><span class="reveal-line"><span>on your machine.</span></span></h2>
+      <p>Every word is transcribed <b>locally, with on-device Whisper</b>. Nothing is uploaded, nothing is stored on a server, no account required — your voice never leaves your Mac.</p>
+    </div>
+
+    <div class="beat">
+      <div class="kicker">Pay once, not every month</div>
+      <h2><span class="reveal-line"><span>No</span></span><span class="reveal-line"><span>subscription.</span></span></h2>
+      <p>Cloud dictation apps run about <b>$15 every month</b>. VoiceMode is <b>$50, once</b> — it pays for itself in roughly three months, then never costs another cent.</p>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="pricing" id="pricing">
+    <div class="card">
+      <div class="eyebrow">One-time purchase</div>
+      <div class="num"><span>$</span>50</div>
+      <div class="once">Pay once · own it forever</div>
+      <ul>
+        <li><span><b>100% on-device.</b> Your voice never leaves your Mac.</span></li>
+        <li><span><b>No subscription.</b> No monthly bill, no account.</span></li>
+        <li><span><b>Any app.</b> Dictate into anything with one hotkey.</span></li>
+        <li><span><b>8 languages</b> · instant text injection · native menu-bar app.</span></li>
+      </ul>
+      <br/>
+      <a class="btn btn-primary" href="#">Buy VoiceMode — $50</a>
+      <div class="compare">Cloud dictation apps charge ~$15/month. VoiceMode pays for itself in 90 days.</div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="brand"><span class="dot"></span>VoiceMode</div>
+    <span style="color:#fff">A <a href="https://sanctuarypartners.llc" style="color:#fff;text-decoration:none;font-weight:600">Sanctuary Partners, LLC</a> venture</span>
+  </footer>
+
+  <!-- libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+  <script>
+  /* ============ smooth scroll ============ */
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let lenis;
+  if(!reduced && window.Lenis){
+    lenis = new Lenis({lerp:.09, wheelMultiplier:1});
+    function raf(t){lenis.raf(t);requestAnimationFrame(raf);}
+    requestAnimationFrame(raf);
+    if(window.gsap && window.ScrollTrigger){
+      lenis.on('scroll', ScrollTrigger.update);
+    }
+  }
+
+  /* ============ lock scroll during the intro, release once the headline resolves ============ */
+  if(!reduced){
+    let locked = true;
+    const SCROLL_KEYS = [32,33,34,35,36,38,40];   // space, pgup/dn, end, home, arrows
+    const keepTop  = () => { if(locked) window.scrollTo(0,0); };           // snap back = hard lock
+    const blockEv  = e => { if(locked) e.preventDefault(); };
+    const blockKey = e => { if(locked && SCROLL_KEYS.includes(e.keyCode)) e.preventDefault(); };
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    if(lenis) lenis.stop();
+    window.addEventListener('scroll', keepTop, {passive:true});
+    window.addEventListener('wheel', blockEv, {passive:false});
+    window.addEventListener('touchmove', blockEv, {passive:false});
+    window.addEventListener('keydown', blockKey, {passive:false});
+    setTimeout(() => {                          // ~right after "It types." finishes (TYPE_E)
+      locked = false;
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      if(lenis) lenis.start();
+      window.removeEventListener('scroll', keepTop);
+      window.removeEventListener('wheel', blockEv);
+      window.removeEventListener('touchmove', blockEv);
+      window.removeEventListener('keydown', blockKey);
+    }, 10000);
+  }
+
+  /* ============ particle headline ============ */
+  const canvas = document.getElementById('field');
+  const ctx = canvas.getContext('2d');
+  let W,H,DPR, particles=[], scatterAmt=0, started=performance.now(), rotX=0, rotY=0;
+  let TOP_BASE=0, BOT_BASE=0, LETTERS=[], FS=0;   // line centres + per-glyph bars + sampled font size
+  const HEADLINE = ['You talk.','It types.'];
+  const STAGGER = 1.45;            // seconds: left->right "typing" reveal
+  const mouse = {x:-9999, y:-9999, active:false};
+
+  function size(){
+    DPR = Math.min(window.devicePixelRatio||1, 2);
+    W = canvas.clientWidth = window.innerWidth;
+    H = canvas.clientHeight = window.innerHeight;
+    if(W < 2 || H < 2) return;     // guard: hidden / zero-size container
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    build();
+    drawFrame(performance.now());  // synchronous first paint (no blank flash)
+    // centre the lower content block between the bottom of "It types." and the screen bottom
+    const lower = document.getElementById('heroLower');
+    if(lower){ const headBottom = H*0.44 + 0.96*FS; lower.style.top = ((headBottom + H)/2) + 'px'; }
+  }
+
+  function build(){
+    // render headline to an offscreen canvas, sample opaque pixels
+    const oc = document.createElement('canvas');
+    oc.width = W; oc.height = H;
+    const o = oc.getContext('2d');
+    const fs = Math.min(W*0.20, 200);
+    o.fillStyle = '#fff';
+    o.textAlign = 'center';
+    o.textBaseline = 'middle';
+    o.font = `600 ${fs}px "Geist", sans-serif`;
+    const lineH = fs*0.96;
+    const cy = H*0.44;
+    HEADLINE.forEach((line,i)=>{
+      o.fillText(line, W/2, cy - (lineH*(HEADLINE.length-1))/2 + i*lineH);
+    });
+    const img = o.getImageData(0,0,W,H).data;
+    const gap = W < 700 ? 3 : 4;
+    const targets=[];
+    for(let y=0;y<H;y+=gap){
+      for(let x=0;x<W;x+=gap){
+        if(img[(y*W+x)*4+3] > 128){
+          targets.push({x,y});
+        }
+      }
+    }
+    const cx = W/2;
+
+    // --- ONE bar per LETTER via CONNECTED-COMPONENT labelling of the sampled glyphs.
+    //     Grouping by pixel-connectivity (not x-position) keeps overhangs (e.g. Y's
+    //     top-right diagonal) with their OWN letter, so a letter = exactly one bar. ---
+    const cellKey = (gx,gy)=> gx+'|'+gy;
+    const cellMap = new Map();
+    targets.forEach((t,idx)=>{ if(t.y<cy) cellMap.set(cellKey(t.x/gap, t.y/gap), idx); });
+    const labelOf = new Int32Array(targets.length).fill(-1);
+    let nLab = 0;
+    for(const [,idx] of cellMap){
+      if(labelOf[idx] !== -1) continue;
+      const lab = nLab++; const stack=[idx]; labelOf[idx]=lab;
+      while(stack.length){
+        const ci=stack.pop(), t=targets[ci], gx=t.x/gap, gy=t.y/gap;
+        for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){
+          if(!dx && !dy) continue;
+          const nb = cellMap.get(cellKey(gx+dx, gy+dy));
+          if(nb!==undefined && labelOf[nb]===-1){ labelOf[nb]=lab; stack.push(nb); }
+        }
+      }
+    }
+    const comp = Array.from({length:nLab}, ()=>({n:0,minx:1e9,maxx:-1e9}));
+    targets.forEach((t,idx)=>{ if(t.y<cy){ const c=comp[labelOf[idx]]; c.n++; if(t.x<c.minx)c.minx=t.x; if(t.x>c.maxx)c.maxx=t.x; } });
+    const keep = comp.map((c,L)=>({L, cxs:(c.minx+c.maxx)/2, n:c.n})).filter(c=>c.n>=12);
+    keep.sort((a,b)=>a.cxs-b.cxs);                       // left -> right
+    const labToBar = new Int32Array(nLab).fill(-1);
+    keep.forEach((c,bi)=> labToBar[c.L]=bi);
+    const barCenters = keep.map(c=>c.cxs);
+    LETTERS = barCenters.map(c=>({ barX:c - cx, hue:178 + (c/W)*82,   // solid colour per bar
+                                   phase:Math.random()*Math.PI*2, freq:0.7+Math.random()*0.9 }));
+    const nearestKeep = x => { let b=0,best=1e9; for(let i=0;i<barCenters.length;i++){ const d=Math.abs(x-barCenters[i]); if(d<best){best=d;b=i;} } return b; };
+    const assignBar = (x,idx) => { const b = labelOf[idx]>=0 ? labToBar[labelOf[idx]] : -1; return b>=0 ? b : nearestKeep(x); };
+
+    // build / re-home particles. Each TOP particle starts in a COLUMN over its own bar
+    // (not a screen-wide scatter) so it rains straight down into that bar's base — local
+    // streams, not a convergence toward centre.
+    const M = W*0.22;                                     // universe starts BEYOND the screen edges
+    particles = targets.map((t,i)=>{
+      const prev = particles[i];
+      const h = 178 + (t.x/W)*82;       // hue across width: cyan -> violet
+      const top = t.y < cy;
+      const sx = prev? prev.x : (Math.random()-.5)*(W + 2*M);   // EVEN density across the whole frame + beyond
+      const sy = prev? prev.y : (Math.random()-.5)*H*1.5;
+      const fb = top ? nearestBarX(sx) : 0;               // funnel to the NEAREST bar (its column/base)
+      return {
+        hx: t.x - cx, hy: t.y - cy,     // home (text) position in centred plane coords
+        z: 0,
+        x: sx, y: sy, sx0: sx, sy0: sy, // sx0/sy0 = eased-pull start point
+        vx: 0, vy: 0,                   // always start at rest (clean on rebuild)
+        h, ph: Math.random()*Math.PI*2,
+        amp: 0.3+Math.random()*0.7,
+        row: top ? 0 : 1,               // 0 = top "You talk." · 1 = bottom "It types."
+        li: top ? assignBar(t.x, i) : 0, // letter this particle becomes (for the morph)
+        barU: 0, barV: 0,               // set to an even grid below (solid bar)
+        tin: prev? prev.tin : Math.random(),   // staggered suck-in time
+        fb,                             // funnel bar (its column / base)
+        delay: reduced ? 0 : (t.x/W)*STAGGER + Math.random()*0.22
+      };
+    });
+
+    // arrange each bar's particles on an even GRID so the bar reads SOLID (not specky)
+    const barGroups = {};
+    particles.forEach(p=>{ if(p.row===0){ (barGroups[p.li] || (barGroups[p.li]=[])).push(p); } });
+    for(const key in barGroups){
+      const arr = barGroups[key], cols = 5, rows = Math.max(1, Math.ceil(arr.length/cols));
+      arr.forEach((p,n)=>{ p.barU = ((n%cols)+0.5)/cols; p.barV = ((n/cols|0)+0.5)/rows; });  // 0..1; draw formula recentres
+    }
+
+    started = performance.now();
+    TOP_BASE = -lineH/2; BOT_BASE = lineH/2; FS = fs;   // line centres + font size for crisp text
+    if(reduced){ particles.forEach(p=>{p.x=p.hx; p.y=p.hy;}); }
+  }
+
+  const nearestBarX = x => { let b=0,best=1e9; for(let L=0;L<LETTERS.length;L++){ const d=Math.abs(x-LETTERS[L].barX); if(d<best){best=d;b=L;} } return b; };
+
+  let t0 = performance.now();
+  const smooth = t => t<=0 ? 0 : t>=1 ? 1 : t*t*(3-2*t);   // smoothstep easing
+  const lerpf  = (a,b,t)=> a+(b-a)*t;
+  const BAR_W  = 28;                                        // equaliser bar width (px)
+  const BAR_HUE= 190;                                       // ONE solid colour for every bar
+  // showpiece timeline (seconds since this layout built):
+  //   eased gather into a live equaliser meter -> slow morph into "You talk." text (no typing)
+  //   -> "It types." types out beneath -> rest on the readable headline
+  const ENTER=1.8, MORPH_S=6.9, MORPH_E=8.4, TYPE_S=8.6, TYPE_E=9.8;
+
+  function drawFrame(now){
+    const time  = (now - t0)/1000;
+    const since = (now - started)/1000;
+    const cx = W/2, cyC = H*0.44, focal = 720;
+
+    let morphTop = 1 - smooth((since-MORPH_S)/(MORPH_E-MORPH_S));   // 1 = bars … 0 = text
+    if(reduced) morphTop = 0;
+    // crisp-text resolve: the dots sharpen into real Geist text at the end
+    const topReveal = reduced ? 1 : smooth((since-(MORPH_E-0.3))/0.7);    // "You talk." dots -> solid
+    const typeProg  = reduced ? 1 : smooth((since-TYPE_S)/(TYPE_E-TYPE_S)); // "It types." types in
+    const formed    = reduced ? 1 : smooth((since-ENTER)/0.8);            // 0 = loose stars (crisp), 1 = bars
+    // SOLID bar that fills bottom->top as particles arrive, then bounces; dissolves back to dots at morph
+    const REST      = 90;                                                 // full bar height (plane px)
+    const bounce    = smooth((since-ENTER)/0.8);
+    const env       = 0.45 + 0.55*Math.abs(Math.sin(time*1.7));           // shared syllable swell
+    const fillFrac  = reduced ? 1 : Math.min(1, Math.max(0,(since-0.4)/(ENTER-0.4)));  // bottom-up fill 0..1
+    const morphFade = reduced ? 1 : smooth((since-MORPH_S)/0.18);   // solid bar -> particles fast (no pixel-bar pause)
+    const barShown  = reduced ? 0 : (since<ENTER ? smooth((since-0.4)/0.5) : 1) * (1-morphFade);
+    const barHeightFor = (Lt)=>{ const lvl = env*(0.35+0.65*Math.abs(Math.sin(time*2.6*Lt.freq+Lt.phase)));
+                                 return REST*lerpf(1, 0.45+0.7*lvl, bounce); };  // REST settling -> modulated
+
+    // CAMERA ONLY (no tumbling-prism object rotation): a gentle pull-back at the start +
+    // a faint parallax toward the cursor -> reads as moving through space.
+    const camZoom = 1 + 0.16*(1 - smooth(since/(ENTER+0.8)));       // start pulled-in, ease out
+    let ryT = 0, rxT = 0;                                          // no idle object rotation
+    if(mouse.active){ ryT += (mouse.x-cx)/W*0.14; rxT += -(mouse.y-cyC)/H*0.09; }
+    rotY += (ryT-rotY)*0.05; rotX += (rxT-rotX)*0.05;
+    const sinY=Math.sin(rotY), cosY=Math.cos(rotY), sinX=Math.sin(rotX), cosX=Math.cos(rotX);
+
+    ctx.clearRect(0,0,W,H);
+    ctx.globalCompositeOperation = 'lighter';
+    for(let i=0;i<particles.length;i++){
+      const p = particles[i];
+      if(p.row===1) continue;            // "It types." is crisp typed text now, not particles
+      const jx = Math.sin(time*2.2 + p.ph)*p.amp;
+      const jy = Math.cos(time*1.9 + p.ph)*p.amp;
+      let gx, gy, gz=0, k, damp=0.80, baseA, hueDraw=p.h;
+
+      if(p.row===0){
+        // TOP — drifts in like stars, is gently drawn together into a solid bar (equaliser),
+        // then each letter ROTATES 90° on its own vertical axis to become readable.
+        const Lt = LETTERS[p.li] || {barX:p.hx, phase:0, freq:1};
+        const theta = morphTop * (Math.PI/2);              // 90deg edge-on(line) -> 0deg face-on(letter)
+        gx = Lt.barX + (p.hx - Lt.barX)*Math.cos(theta);   // collapse to a vertical line, then open to the letter
+        gy = p.hy;                                          // y FIXED at the letter -> clean Y-axis rotation (no swoop)
+        gz = -(p.hx - Lt.barX) * Math.sin(theta) * 0.6;    // proper Y-rotation depth (reversed = clockwise)
+        hueDraw = lerpf(p.h, BAR_HUE, morphTop);           // ONE solid colour for every bar
+        const baseVis = reduced ? 0.85 : 0.22 + 0.63*Math.min(1, since*1.6);
+        if(!reduced && since < ENTER){                     // suck-in: funnel into the NEAREST bar's base
+          const FB = LETTERS[p.fb] || Lt;
+          const baseX = FB.barX + (p.barU-0.5)*BAR_W;          // spread across that bar's width
+          const baseY = TOP_BASE + REST/2 - p.barV*9;          // pile at the very BASE of the bar
+          const SPREAD = 0.62, DUR = 0.42;
+          const local = (since/ENTER - p.tin*SPREAD) / DUR;
+          const e = local<=0 ? 0 : local>=1 ? 1 : Math.pow(local, 1.7);
+          p.x = lerpf(p.sx0, baseX, e); p.y = lerpf(p.sy0, baseY, e);
+          gx = p.x; gy = p.y; k = 0; damp = 0.80;
+          const land = e<=0.5 ? 0 : smooth((e-0.5)/0.5);       // absorbed into the base as it arrives
+          baseA = baseVis * (1 - land) * (1 - topReveal);
+        } else {
+          k = morphTop>0.04 ? 0.22 : 0.15; damp = 0.80;       // settle to grid (hidden) for the morph
+          baseA = baseVis * (1 - barShown) * (1 - topReveal);
+        }
+      } else {
+        // BOTTOM — "It types." types out left->right after the bars are alive
+        const appearAt = TYPE_S + ((p.hx/W)+0.5)*(TYPE_E-TYPE_S)*0.85;
+        const local = since - appearAt;
+        gx = p.hx + jx*0.7;
+        gy = p.hy + jy*0.7;
+        if(reduced){ k=0.16; baseA=0.85; }
+        else { k = local<0 ? 0.010 : 0.16; baseA = local>0 ? Math.min(1, local*2.2)*0.85 : 0; }
+      }
+
+      p.vx += (gx - p.x)*k; p.vy += (gy - p.y)*k;
+      p.vx *= damp; p.vy *= damp;
+      p.x += p.vx; p.y += p.vy;
+      if(p.x !== p.x || p.y !== p.y){ p.x=p.hx; p.y=p.hy; p.vx=0; p.vy=0; }  // self-heal any NaN
+      p.z += (gz - p.z)*0.18;
+
+      // project (gentle yaw/pitch about centre) + camera zoom, then perspective divide
+      const X=p.x, Y=p.y, Z=p.z;
+      const X1 =  X*cosY + Z*sinY;
+      const Z1 = -X*sinY + Z*cosY;
+      const Y1 =  Y*cosX - Z1*sinX;
+      const Z2 =  Y*sinX + Z1*cosX;
+      const persp = Math.max(0.4, Math.min(2.4, focal/(focal - Z2))) * camZoom;
+      const a = baseA * Math.min(1, persp);
+      if(a < 0.012) continue;
+      const sx = cx + X1*persp;
+      const sy = cyC + Y1*persp;
+      const solid = p.row===0 ? (1 + 0.55*morphTop*formed) : 1;  // crisp stars at start, solid once formed
+      const r = 1.9*persp*solid, s = 1.5*persp*solid;
+      ctx.fillStyle = `hsla(${hueDraw},95%,70%,${a*0.10})`;       // lighter halo = crisper dots
+      ctx.beginPath(); ctx.arc(sx,sy,Math.max(0.5,r),0,6.283); ctx.fill();
+      ctx.fillStyle = `hsla(${hueDraw},98%,74%,${a})`;
+      ctx.fillRect(sx-s/2, sy-s/2, Math.max(0.8,s), Math.max(0.8,s));
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
+    // ---- solid bars: fill bottom->top as particles arrive, then bounce; dissolve at the morph ----
+    if(barShown > 0.001){
+      const cz = camZoom;
+      const baseline = cyC + (TOP_BASE + REST/2)*cz;     // fixed bottom edge of a full bar
+      ctx.save();
+      ctx.globalAlpha = barShown;
+      ctx.shadowColor = 'rgba(110,231,240,0.5)'; ctx.shadowBlur = 14*cz;
+      ctx.fillStyle = 'hsl(190,96%,70%)';
+      for(let L=0; L<LETTERS.length; L++){
+        const Lt = LETTERS[L], bw = BAR_W*cz, bx = cx + Lt.barX*cz - bw/2;
+        let h, top;
+        if(since < ENTER){ h = REST*fillFrac*cz; top = baseline - h; }      // grow bottom -> top
+        else { h = barHeightFor(Lt)*cz; top = (cyC + TOP_BASE*cz) - h/2; }   // bounce, centred
+        if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(bx, top, bw, h, 2.5*cz); ctx.fill(); }
+        else ctx.fillRect(bx, top, bw, h);
+      }
+      ctx.restore();
+    }
+
+    // ---- crisp Geist text: the dots resolve into polished type ----
+    if(FS>0 && (topReveal>0.001 || typeProg>0.001)){
+      ctx.textBaseline = 'middle';
+      ctx.font = `600 ${FS}px "Geist", sans-serif`;
+      const grad = ctx.createLinearGradient(W*0.12,0,W*0.88,0);
+      grad.addColorStop(0,'#6EE7F0'); grad.addColorStop(1,'#A78BFA');
+      ctx.fillStyle = grad;
+      if(topReveal>0.001){                              // "You talk." sharpens in
+        ctx.globalAlpha = topReveal;
+        ctx.textAlign = 'center';
+        ctx.fillText(HEADLINE[0], cx, cyC + TOP_BASE);
+      }
+      if(typeProg>0.001){                               // "It types." types in, char by char
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'left';
+        const full = HEADLINE[1], fw = ctx.measureText(full).width;
+        const n = Math.round(typeProg*full.length);
+        ctx.fillText(full.slice(0,n), cx - fw/2, cyC + BOT_BASE);
+      }
+      ctx.globalAlpha = 1; ctx.textAlign = 'left';
+    }
+  }
+
+  function loop(now){ drawFrame(now); requestAnimationFrame(loop); }
+
+  size();
+  window.addEventListener('resize', size);
+  requestAnimationFrame(loop);
+  // re-sample once the display font is ready (crisp letterforms), keep entrance
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(()=>{ if(W>2) build(); }); }
+  // cursor interaction
+  window.addEventListener('pointermove', e=>{ mouse.x=e.clientX; mouse.y=e.clientY; mouse.active=true; });
+  window.addEventListener('pointerleave', ()=>{ mouse.active=false; });
+  window.addEventListener('blur', ()=>{ mouse.active=false; });
+  // click the hero to replay the voice->text sequence
+  function replay(){ if(W<2||reduced) return;
+    const M=W*0.22;
+    particles.forEach(p=>{
+      const sx = (Math.random()-.5)*(W + 2*M);
+      const sy = (Math.random()-.5)*H*1.5;
+      if(p.row===0) p.fb = nearestBarX(sx);
+      p.x=sx; p.y=sy; p.sx0=sx; p.sy0=sy; p.z=0; p.vx=0; p.vy=0; });
+    started = performance.now(); }
+  canvas.addEventListener('click', replay);
+
+  /* ============ choreography ============ */
+  window.addEventListener('load', ()=>{
+    if(window.gsap){
+      // tagline fades in over the bouncing "sound wave", holds, then clears before the morph
+      gsap.timeline({delay:2.0})
+        .fromTo('#heroTagline',{opacity:0,y:18},{opacity:1,y:0,duration:0.7,ease:'power3.out'})
+        .to('#heroTagline',{opacity:0,y:-12,duration:0.6,ease:'power2.in'}, '+=3.5');
+      // sub-copy + CTA held until the whole headline (incl. "It types.") has revealed
+      gsap.to('#heroSub',{opacity:1,y:0,duration:1.1,delay:10.1,ease:'power3.out'});
+      gsap.to('#ctaRow',{opacity:1,y:0,duration:1.1,delay:10.4,ease:'power3.out'});
+
+      // scatter particles as you scroll out of the hero
+      gsap.to(window,{}); // ensure gsap ticker alive
+      if(window.ScrollTrigger){
+        ScrollTrigger.create({
+          trigger:'.hero', start:'top top', end:'bottom top', scrub:true,
+          onUpdate:self=>{ scatterAmt = self.progress * 140; }
+        });
+        // manifesto line reveals
+        gsap.utils.toArray('.reveal-line > span').forEach(el=>{
+          gsap.to(el,{y:'0%',duration:1,ease:'power4.out',
+            scrollTrigger:{trigger:el,start:'top 88%'}});
+        });
+        gsap.utils.toArray('.beat p').forEach(el=>{
+          gsap.from(el,{opacity:0,y:24,duration:.9,ease:'power3.out',
+            scrollTrigger:{trigger:el,start:'top 90%'}});
+        });
+        gsap.from('.card',{opacity:0,y:40,duration:1,ease:'power3.out',
+          scrollTrigger:{trigger:'.card',start:'top 85%'}});
+      }
+    }
+  });
+  </script>
 </body>
 </html>
