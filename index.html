@@ -207,6 +207,7 @@
   <footer>
     <div class="brand"><span class="dot"></span>VoiceMode<span class="dot"></span></div>
     <a href="https://sanctuarypartners.llc" style="color:#A78BFA;text-decoration:underline;text-underline-offset:3px;font-weight:700">A Sanctuary Partners, LLC venture</a>
+    <div style="margin-top:8px;font-size:12px;opacity:.5">&copy; <span id="year"></span> Sanctuary Partners LLC. All rights reserved.</div>
   </footer>
 
   <!-- libs -->
@@ -582,5 +583,6 @@
     }
   });
   </script>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
 </body>
 </html>
