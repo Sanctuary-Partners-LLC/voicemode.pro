@@ -136,7 +136,7 @@
   footer .brand{justify-content:center;margin-bottom:14px;color:#fff}
 
   /* ---------- feature showcase ---------- */
-  .showcase{position:relative;max-width:var(--maxw);margin:0 auto;padding:10vh clamp(20px,6vw,80px) 0}
+  .showcase{position:relative;max-width:var(--maxw);margin:0 auto;padding:10vh clamp(20px,6vw,80px) 12vh}
   .showcase-tail{max-width:var(--maxw);margin:0 auto;padding:0 clamp(20px,6vw,80px) 12vh}
   /* showcase-head sticks at top when scrolled to — acts as a solid mask over the feature rows below */
   .showcase-head{
@@ -150,8 +150,10 @@
   .showcase-head h2{font-family:"Geist";font-weight:700;letter-spacing:-.03em;line-height:1.0;font-size:clamp(36px,6.5vw,92px)}
   .showcase-head p{margin:20px auto 0;max-width:560px;font-size:clamp(15px,1.4vw,18px);color:var(--muted)}
   .showcase-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:clamp(24px,5vw,72px);align-items:start}
-  /* feature rows scroll under the sticky head */
-  .showcase-steps{position:relative;z-index:5}
+  /* feature rows scroll under the sticky head; the trailing pad extends the grid a
+     little past the screenshot's natural sticky-release point so the screenshot stays
+     pinned right up until the JS freeze hands it off to normal scroll (no early drift) */
+  .showcase-steps{position:relative;z-index:5;padding-bottom:96px}
   /* compact feature rows */
   .step{padding:64px 0;border-top:1px solid var(--line);cursor:default;transition:opacity .25s ease}
   .step .num{font-family:"Geist";font-weight:600;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin-bottom:11px;transition:color .25s ease}
@@ -245,7 +247,20 @@
       <div class="showcase-steps">
 
         <div class="step" data-shot="0">
-          <div class="num">01 — Transcription &amp; polish</div>
+          <div class="num">01 — Private by design</div>
+          <h3>Nothing leaves your Mac.</h3>
+          <img class="step-img" src="shots/general.png" alt="VoiceMode private on-device transcription" />
+          <p>Every word is transcribed and polished <b>locally</b>. No account, no upload, no telemetry — the permissions are right there in the open, and there's no &ldquo;send to cloud&rdquo; switch to find, because there isn't one.</p>
+          <div class="chips">
+            <span class="chip">100% on-device</span>
+            <span class="chip">No account</span>
+            <span class="chip">No telemetry</span>
+            <span class="chip">Works offline</span>
+          </div>
+        </div>
+
+        <div class="step" data-shot="0">
+          <div class="num">02 — Transcription &amp; polish</div>
           <h3>Speak. Clean text appears.</h3>
           <img class="step-img" src="shots/general.png" alt="VoiceMode transcription and polish settings" />
           <p>On-device Whisper, your choice of model — from <b>fast</b> to <b>most accurate</b>. It strips filler words and fixes punctuation <b>as you talk</b>, and never touches the network to do it.</p>
@@ -260,7 +275,7 @@
         </div>
 
         <div class="step" data-shot="1">
-          <div class="num">02 — One hotkey</div>
+          <div class="num">03 — One hotkey</div>
           <h3>One key is the whole interface.</h3>
           <img class="step-img" src="shots/hotkey.png" alt="VoiceMode hotkey settings" />
           <p>Pick any global shortcut. <b>Press, speak, release</b> — your words land in whatever app is in front of you. No window to open, nothing to click.</p>
@@ -274,7 +289,7 @@
         </div>
 
         <div class="step" data-shot="2">
-          <div class="num">03 — Voice shortcuts</div>
+          <div class="num">04 — Voice shortcuts</div>
           <h3>Teach it your shorthand.</h3>
           <img class="step-img" src="shots/shortcuts.png" alt="VoiceMode voice shortcuts settings" />
           <p>Say a trigger word and VoiceMode expands it before it types — say <b>&ldquo;sig&rdquo;</b> for your whole signature. Spoken commands like <b>&ldquo;new line&rdquo;</b> just work, and mid-sentence fixes (&ldquo;meet at 2, actually 3&rdquo;) resolve on their own.</p>
@@ -293,31 +308,11 @@
           <img class="shot active" data-i="0" src="shots/general.png" alt="" />
           <img class="shot" data-i="1" src="shots/hotkey.png" alt="" />
           <img class="shot" data-i="2" src="shots/shortcuts.png" alt="" />
-          <img class="shot" data-i="3" src="shots/permissions.png" alt="" />
         </div>
       </div>
     </div>
   </section>
 
-  <!-- row04 lives outside the showcase so CSS sticky on head releases when this row's divider reaches the screenshot top -->
-  <div class="showcase-tail">
-    <div class="showcase-grid">
-      <div class="showcase-steps">
-        <div class="step" data-shot="3">
-          <div class="num">04 — Private by design</div>
-          <h3>Nothing leaves your Mac.</h3>
-          <img class="step-img" src="shots/permissions.png" alt="VoiceMode permissions and privacy settings" />
-          <p>Every word is transcribed and polished <b>locally</b>. No account, no upload, no telemetry — the permissions are right there in the open, and there's no &ldquo;send to cloud&rdquo; switch to find, because there isn't one.</p>
-          <div class="chips">
-            <span class="chip">100% on-device</span>
-            <span class="chip">No account</span>
-            <span class="chip">No telemetry</span>
-            <span class="chip">Works offline</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- PRICING -->
   <section class="pricing" id="pricing">
@@ -722,7 +717,7 @@
 
         const select = i => {
           shots.forEach(s=> s.classList.toggle('active', +s.dataset.i===i));
-          steps.forEach((s,n)=> s.classList.toggle('sel', n===i));
+          steps.forEach(s=> s.classList.toggle('sel', +s.dataset.shot===i));
         };
         select(0);
 
@@ -738,34 +733,57 @@
         new ResizeObserver(syncTop).observe(showcaseHead);
         new ResizeObserver(syncTop).observe(navEl);
 
-        // Swap screenshots and fade media as showcase section ends.
-        // Row04 is in showcase-tail so CSS sticky on the head releases exactly when
-        // row04's divider reaches navH+headH (the screenshot top). The media's CSS
-        // sticky releases mediaH pixels earlier, so we scroll-fade it in that window.
+        // Once the LAST step reaches the top of the screenshot, stop pinning:
+        // freeze the head + screenshot exactly where they are so they rejoin the
+        // normal scroll and travel up together with the last step, revealing pricing.
+        const lastStep = steps[steps.length - 1];
+        let released = false;
+        let releaseY = 0;
+
+        // Freeze with position:relative (NOT absolute) so the elements keep their
+        // space in the document flow — otherwise removing the head from flow would
+        // shift the grid up by the head's height (the visible "jump"). A computed
+        // top offset holds each element exactly where it was pinned, then they
+        // scroll away naturally with the page.
+        const freeze = () => {
+          [showcaseHead, showcaseMedia].forEach(el => {
+            const stuckTop = el.getBoundingClientRect().top;   // where it's pinned right now
+            el.style.position = 'relative';
+            el.style.top = '0px';
+            const flowTop = el.getBoundingClientRect().top;    // where it sits in normal flow
+            el.style.top = (stuckTop - flowTop) + 'px';        // hold it exactly where pinned
+          });
+        };
+        const unfreeze = () => {
+          [showcaseHead, showcaseMedia].forEach(el => {
+            el.style.position = ''; el.style.top = '';
+          });
+          syncTop();
+        };
+
+        // Swap screenshot when a step's h3 crosses 100px below the screenshot top edge.
         const onScroll = () => {
           const navH = navEl.offsetHeight;
           const headH = showcaseHead.offsetHeight;
-          const mediaH = showcaseMedia.offsetHeight;
-
-          // Scroll-fade media: linearly 0→1 over 200px before its CSS sticky releases
-          const showcaseBottom = showcaseEl.getBoundingClientRect().bottom;
-          const mediaRelease = navH + headH + mediaH;
-          const fadeZone = 200;
-          if (showcaseBottom <= mediaRelease + fadeZone) {
-            showcaseMedia.style.opacity = Math.max(0, (showcaseBottom - mediaRelease) / fadeZone).toString();
-          } else {
-            showcaseMedia.style.opacity = '1';
-          }
-
-          // Swap shot when a step's h3 crosses 100px below the screenshot top edge.
           const swapLine = navH + headH + 100;
           let active = 0;
-          steps.forEach((step, i) => {
-            if (step.querySelector('h3').getBoundingClientRect().top < swapLine) active = i;
+          steps.forEach((step) => {
+            if (step.querySelector('h3').getBoundingClientRect().top < swapLine) active = +step.dataset.shot;
           });
           select(active);
+
+          // Release point: last step's top reaches the screenshot's top edge.
+          if (!released && lastStep.getBoundingClientRect().top <= navH + headH) {
+            released = true;
+            releaseY = window.scrollY;
+            freeze();
+          } else if (released && window.scrollY < releaseY) {
+            released = false;
+            unfreeze();
+          }
         };
         window.addEventListener('scroll', onScroll, { passive:true });
+        onScroll();
       }
     }
   });
