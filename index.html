@@ -54,7 +54,9 @@
     background:
       radial-gradient(52% 38% at 50% 40%, rgba(110,231,240,.06), transparent 68%),
       radial-gradient(44% 34% at 50% 44%, rgba(167,139,250,.07), transparent 70%);}
-  #field{position:absolute;inset:0;display:block;z-index:1}
+  /* canvas is a replaced element: inset:0 alone won't stretch it, so force it to fill
+     the hero (otherwise its bitmap size leaks into layout and the headline drifts off) */
+  #field{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
   .hero-lower{z-index:2}
   .hero-lower{                       /* JS sets top to centre this block below "It types." */
     position:absolute;left:0;right:0;top:80%;transform:translateY(-50%);
@@ -392,8 +394,13 @@
 
   function size(){
     DPR = Math.min(window.devicePixelRatio||1, 2);
-    W = canvas.clientWidth = window.innerWidth;
-    H = canvas.clientHeight = window.innerHeight;
+    // size from the CSS layout viewport, not window.innerWidth/Height — on mobile those
+    // can report scaled/visual-viewport values that diverge from the real layout size and
+    // throw the headline off-screen. documentElement.clientWidth/Height is the true CSS
+    // viewport (what media queries use) and equals innerWidth/Height on desktop.
+    const docEl = document.documentElement;
+    W = docEl.clientWidth  || window.innerWidth;
+    H = docEl.clientHeight || window.innerHeight;
     if(W < 2 || H < 2) return;     // guard: hidden / zero-size container
     canvas.width = W*DPR; canvas.height = H*DPR;
     ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -721,9 +728,15 @@
         };
         select(0);
 
+        // The pin/swap choreography is a desktop-only affair — on mobile (≤860px) the
+        // showcase is a plain single column (CSS drops the sticky positioning), so the JS
+        // must not inject inline top offsets there or it leaves a phantom gap.
+        const isMobile = () => window.matchMedia('(max-width:860px)').matches;
+
         // Keep head and screenshot docked below the fixed nav.
         const navEl = document.querySelector('.nav');
         const syncTop = () => {
+          if (isMobile()) { showcaseHead.style.top = ''; showcaseMedia.style.top = ''; return; }
           const navH = navEl.offsetHeight;
           const headH = showcaseHead.offsetHeight;
           showcaseHead.style.top = navH + 'px';
@@ -763,6 +776,7 @@
 
         // Swap screenshot when a step's h3 crosses 100px below the screenshot top edge.
         const onScroll = () => {
+          if (isMobile()) { if (released) { released = false; unfreeze(); } return; }
           const navH = navEl.offsetHeight;
           const headH = showcaseHead.offsetHeight;
           const swapLine = navH + headH + 100;
