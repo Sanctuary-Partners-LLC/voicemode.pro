@@ -206,7 +206,7 @@
   <section class="hero">
     <canvas id="field"></canvas>
     <div class="hero-tagline" id="heroTagline">
-      <span>Private, on-device dictation for Mac.</span>
+      <span>Private dictation for Mac.</span>
       <span><b>No cloud. No subscription.</b></span>
     </div>
     <div class="hero-lower" id="heroLower">
@@ -818,11 +818,22 @@
   </script>
 
   <script>
-  /* ============ section snap: settle to the nearest breakpoint after scrolling ============
-     Gives fast scrollers a clean stop on every screen — hero, each manifesto beat, each
-     feature step (docked under the sticky head), and pricing. It is a SETTLE snap: it never
-     fights momentum, only glides to the nearest breakpoint once scrolling stops, and a real
-     wheel/touch/key always cancels it so the user stays in control. */
+  /* ============ section snap: velocity-aware breakpoints ===================================
+     Breakpoints: hero, each manifesto beat, each feature step (docked under the sticky head),
+     pricing. Instead of waiting for scrolling to fully STOP (which is glacial under trackpad/
+     touch momentum), the snap reads the gesture:
+
+       • No-momentum input (scrollbar drag, keyboard) → snap to the NEAREST breakpoint the
+         instant motion settles. Crisp, never overshoots where you placed it.
+       • Momentum input (trackpad / mouse wheel / touch) → the moment the gesture is RELEASED
+         and coasting (velocity decaying well below its own peak — detected mid-glide, so we
+         never wait for the ride to die), we predict where the throw is headed from the PEAK
+         velocity and take over with a short locked scroll that cuts the leftover momentum.
+         A gentle flick lands one section on; a hard flick can carry one further. One
+         continuous curve, so soft/hard fall out of the same math.
+
+     The thresholds below are velocity in px/frame of the (Lenis-smoothed) scroll and WILL
+     want tuning on real hardware — trackpad and phone feel can't be reproduced on a mouse. */
   if(!reduced){
     const navEl  = document.querySelector('.nav');
     const beats  = Array.from(document.querySelectorAll('.manifesto .beat'));
@@ -831,12 +842,24 @@
     const showcaseHead = document.querySelector('.showcase-head');
     const isMobile = () => window.matchMedia('(max-width:860px)').matches;
 
-    let snapEnabled = false, snapping = false, idleT = 0, resetT = 0;
-    setTimeout(() => { snapEnabled = true; }, 10200);   // wait out the intro lock (releases ~10s)
+    // ---- tunables (feel) -------------------------------------------------------------------
+    // Flick strength → how many breakpoints to advance (spacing-independent). PEAK velocity is
+    // in px/frame of the Lenis-smoothed scroll; these WILL want tuning on real hardware.
+    const PRECISION_V = 5;     // peak below this on a momentum input → just a nudge → nearest
+    const SOFT_V      = 30;    // below this → advance 1 section (soft flick → next, sticks fast)
+    const HARD_V      = 70;    // below this → advance 2; at/above → advance 3 (hard flick rides further)
+    const MAX_ADV     = 3;     // hard cap so a hard flick never blows through the whole page
+    const COAST_RATIO = 0.6;   // released/coasting once speed drops below this fraction of its peak
+    const DECAY_N     = 3;     // …for this many consecutive decaying frames
+    const IDLE_MS     = 90;    // no-momentum settle / wheel-idle fallback
+    // ----------------------------------------------------------------------------------------
 
-    // Breakpoints recomputed live each settle, so the showcase freeze / nav resize never
-    // leaves a stale offset. Each is an absolute scrollY that docks the element's top below
-    // the fixed nav (and below the sticky showcase head, on desktop, for feature steps).
+    let armed = false, snapping = false;
+    setTimeout(() => { armed = true; }, 10200);   // wait out the intro lock (releases ~10s)
+
+    // Breakpoints recomputed live, so the showcase freeze / nav resize never leaves a stale
+    // offset. Each is an absolute scrollY docking the element's top below the fixed nav (and
+    // below the sticky showcase head, on desktop, for feature steps).
     const breakpoints = () => {
       const y = window.scrollY || window.pageYOffset;
       const navH  = navEl ? navEl.offsetHeight : 0;
@@ -846,32 +869,95 @@
       beats.forEach(b => at(b, navH));
       steps.forEach(s => at(s, navH + headH));
       at(pricing, navH);
-      return out;
+      return out.sort((a,b) => a - b);
     };
 
-    const settle = () => {
-      if(!snapEnabled || snapping) return;
+    const snapTo = (target) => {
+      const y = window.scrollY || window.pageYOffset;
+      if(Math.abs(target - y) < 4){ epoch = false; return; }
+      snapping = true; epoch = false;
+      const dist = Math.abs(target - y);
+      const dur  = Math.min(0.66, 0.32 + dist / 4200);            // farther = slightly longer, capped
+      const ease = t => 1 - Math.pow(1 - t, 3);
+      const done = () => { snapping = false; };
+      if(lenis) lenis.scrollTo(target, {duration:dur, easing:ease, onComplete:done});
+      else window.scrollTo({top:target, behavior:'smooth'});
+      setTimeout(done, dur * 1000 + 350);                          // safety release
+    };
+
+    const commit = () => {
+      if(!armed || snapping){ epoch = false; return; }
       const y = window.scrollY || window.pageYOffset;
       const docMax = document.documentElement.scrollHeight - window.innerHeight;
-      if(y >= docMax - 2) return;                       // resting on the footer — leave it
-      const maxJump = Math.min(window.innerHeight * 0.55, 600);   // don't yank from deep inside a tall section
-      let best = null, bestD = 1e9;
-      for(const t of breakpoints()){ const d = Math.abs(t - y); if(d < bestD){ bestD = d; best = t; } }
-      if(best == null || bestD < 4 || bestD > maxJump) return;    // already there, or too far to be a clean snap
-      snapping = true;
-      clearTimeout(resetT); resetT = setTimeout(() => { snapping = false; }, 800);   // safety release
-      const ease = t => 1 - Math.pow(1 - t, 3);
-      if(lenis) lenis.scrollTo(best, {duration:0.6, easing:ease, onComplete:() => { snapping = false; }});
-      else window.scrollTo({top:best, behavior:'smooth'});
+      if(y >= docMax - 2){ epoch = false; return; }                // resting on the footer — leave it
+      const B = breakpoints();
+      const dir = peakV >= 0 ? 1 : -1;
+      const nearestTo = p => B.reduce((a,b) => Math.abs(b - p) < Math.abs(a - p) ? b : a, B[0]);
+
+      if(!momentumInput){
+        // scrollbar drag / keyboard: no throw — nearest, but don't yank from deep in a tall section
+        const t = nearestTo(y);
+        const maxJump = Math.min(window.innerHeight * 0.55, 600);
+        if(Math.abs(t - y) > maxJump){ epoch = false; return; }
+        snapTo(t);
+        return;
+      }
+      // momentum: number of sections to advance from flick strength (spacing-independent, capped)
+      const a = Math.abs(peakV);
+      const nadv = a < PRECISION_V ? 0 : a < SOFT_V ? 1 : a < HARD_V ? 2 : MAX_ADV;
+      let target;
+      if(nadv === 0){
+        target = nearestTo(y);                                     // nudge → nearest
+      } else {
+        const eps = 6;
+        let base;                                                  // the breakpoint we're departing, in dir
+        if(dir > 0){ base = 0; for(let k = 0; k < B.length; k++) if(B[k] <= y + eps) base = k; }
+        else       { base = B.length - 1; for(let k = B.length - 1; k >= 0; k--) if(B[k] >= y - eps) base = k; }
+        target = B[Math.max(0, Math.min(B.length - 1, base + dir * nadv))];
+      }
+      snapTo(target);
     };
 
-    const onIdle = () => { clearTimeout(idleT); if(!snapEnabled || snapping) return; idleT = setTimeout(settle, 150); };
-    const cancel = () => { if(snapping){ snapping = false; clearTimeout(resetT); } };   // user takes control back
+    // ---- gesture tracking (one rAF loop derives velocity from the scroll position) ----------
+    let epoch = false, momentumInput = false, peakV = 0, prevY = window.scrollY,
+        prevSp = 0, decFrames = 0, lastMoveT = 0, lastWheelT = -1e9, touching = false;
 
-    window.addEventListener('scroll', onIdle, {passive:true});
-    window.addEventListener('wheel', cancel, {passive:true});
-    window.addEventListener('touchstart', cancel, {passive:true});
-    window.addEventListener('keydown', e => { if([32,33,34,35,36,38,40].includes(e.keyCode)) cancel(); }, {passive:true});
+    const tick = (now) => {
+      const y  = window.scrollY || window.pageYOffset;
+      const v  = y - prevY;  prevY = y;          // signed px/frame
+      const sp = Math.abs(v);
+      if(sp > 0.15) lastMoveT = now;
+      const wheelRecent = now - lastWheelT < 120;
+
+      if(!epoch && sp > 0.6 && armed && !snapping){     // a fresh motion epoch begins
+        epoch = true; peakV = v; prevSp = sp; decFrames = 0;
+        momentumInput = touching || wheelRecent;        // wheel/touch carry momentum; scrollbar/key don't
+      }
+      if(epoch){
+        if(sp > Math.abs(peakV)) peakV = v;             // track signed peak (encodes flick strength + dir)
+        if(sp < prevSp - 0.05) decFrames++; else decFrames = 0;
+        prevSp = sp;
+        if(armed && !snapping){
+          let release = false;
+          if(!momentumInput){
+            if(sp < 0.4 && now - lastMoveT > IDLE_MS) release = true;          // settled (no momentum)
+          } else if(!touching){
+            if(now - lastWheelT > IDLE_MS || (decFrames >= DECAY_N && sp < Math.abs(peakV) * COAST_RATIO))
+              release = true;                                                   // released & coasting
+          }
+          if(release) commit();
+        }
+        if(sp < 0.3 && now - lastMoveT > 160) epoch = false;   // motion died on its own (already on a breakpoint)
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+
+    // Non-passive: record wheel timing, and while a snap is animating, swallow leftover
+    // trackpad/mouse momentum so it can't drag past the target (replaces Lenis's broken `lock`).
+    window.addEventListener('wheel', (e) => { lastWheelT = performance.now(); if(snapping) e.preventDefault(); }, {passive:false});
+    window.addEventListener('touchstart', () => { touching = true; }, {passive:true});
+    window.addEventListener('touchend', () => { touching = false; if(armed && epoch && momentumInput && !snapping) commit(); }, {passive:true});
   }
   </script>
 
