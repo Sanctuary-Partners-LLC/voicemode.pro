@@ -816,6 +816,65 @@
     }
   });
   </script>
+
+  <script>
+  /* ============ section snap: settle to the nearest breakpoint after scrolling ============
+     Gives fast scrollers a clean stop on every screen — hero, each manifesto beat, each
+     feature step (docked under the sticky head), and pricing. It is a SETTLE snap: it never
+     fights momentum, only glides to the nearest breakpoint once scrolling stops, and a real
+     wheel/touch/key always cancels it so the user stays in control. */
+  if(!reduced){
+    const navEl  = document.querySelector('.nav');
+    const beats  = Array.from(document.querySelectorAll('.manifesto .beat'));
+    const steps  = Array.from(document.querySelectorAll('.showcase .step'));
+    const pricing = document.querySelector('.pricing');
+    const showcaseHead = document.querySelector('.showcase-head');
+    const isMobile = () => window.matchMedia('(max-width:860px)').matches;
+
+    let snapEnabled = false, snapping = false, idleT = 0, resetT = 0;
+    setTimeout(() => { snapEnabled = true; }, 10200);   // wait out the intro lock (releases ~10s)
+
+    // Breakpoints recomputed live each settle, so the showcase freeze / nav resize never
+    // leaves a stale offset. Each is an absolute scrollY that docks the element's top below
+    // the fixed nav (and below the sticky showcase head, on desktop, for feature steps).
+    const breakpoints = () => {
+      const y = window.scrollY || window.pageYOffset;
+      const navH  = navEl ? navEl.offsetHeight : 0;
+      const headH = (showcaseHead && !isMobile()) ? showcaseHead.offsetHeight : 0;
+      const out = [0];                                  // hero top
+      const at = (el, gap) => { if(el) out.push(Math.max(0, Math.round(y + el.getBoundingClientRect().top - gap))); };
+      beats.forEach(b => at(b, navH));
+      steps.forEach(s => at(s, navH + headH));
+      at(pricing, navH);
+      return out;
+    };
+
+    const settle = () => {
+      if(!snapEnabled || snapping) return;
+      const y = window.scrollY || window.pageYOffset;
+      const docMax = document.documentElement.scrollHeight - window.innerHeight;
+      if(y >= docMax - 2) return;                       // resting on the footer — leave it
+      const maxJump = Math.min(window.innerHeight * 0.55, 600);   // don't yank from deep inside a tall section
+      let best = null, bestD = 1e9;
+      for(const t of breakpoints()){ const d = Math.abs(t - y); if(d < bestD){ bestD = d; best = t; } }
+      if(best == null || bestD < 4 || bestD > maxJump) return;    // already there, or too far to be a clean snap
+      snapping = true;
+      clearTimeout(resetT); resetT = setTimeout(() => { snapping = false; }, 800);   // safety release
+      const ease = t => 1 - Math.pow(1 - t, 3);
+      if(lenis) lenis.scrollTo(best, {duration:0.6, easing:ease, onComplete:() => { snapping = false; }});
+      else window.scrollTo({top:best, behavior:'smooth'});
+    };
+
+    const onIdle = () => { clearTimeout(idleT); if(!snapEnabled || snapping) return; idleT = setTimeout(settle, 150); };
+    const cancel = () => { if(snapping){ snapping = false; clearTimeout(resetT); } };   // user takes control back
+
+    window.addEventListener('scroll', onIdle, {passive:true});
+    window.addEventListener('wheel', cancel, {passive:true});
+    window.addEventListener('touchstart', cancel, {passive:true});
+    window.addEventListener('keydown', e => { if([32,33,34,35,36,38,40].includes(e.keyCode)) cancel(); }, {passive:true});
+  }
+  </script>
+
   <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
 </body>
 </html>
