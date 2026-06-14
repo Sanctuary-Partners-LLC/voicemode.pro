@@ -470,6 +470,13 @@
     const barCenters = keep.map(c=>c.cxs);
     LETTERS = barCenters.map(c=>({ barX:c - cx, hue:178 + (c/W)*82,   // solid colour per bar
                                    phase:Math.random()*Math.PI*2, freq:0.7+Math.random()*0.9 }));
+    // even-spacing layout: same overall extent as the headline, but UNIFORM gaps. The
+    // equaliser dances at evenX; bars then slide to their true letter barX during the morph.
+    const NB = LETTERS.length;
+    if(NB > 1){
+      const minX = LETTERS[0].barX, maxX = LETTERS[NB-1].barX;   // keep is sorted left->right
+      LETTERS.forEach((Lt,i)=>{ Lt.evenX = minX + (maxX-minX)*(i/(NB-1)); });
+    } else if(NB === 1){ LETTERS[0].evenX = LETTERS[0].barX; }
     const nearestKeep = x => { let b=0,best=1e9; for(let i=0;i<barCenters.length;i++){ const d=Math.abs(x-barCenters[i]); if(d<best){best=d;b=i;} } return b; };
     const assignBar = (x,idx) => { const b = labelOf[idx]>=0 ? labToBar[labelOf[idx]] : -1; return b>=0 ? b : nearestKeep(x); };
 
@@ -513,7 +520,7 @@
     if(reduced){ particles.forEach(p=>{p.x=p.hx; p.y=p.hy;}); }
   }
 
-  const nearestBarX = x => { let b=0,best=1e9; for(let L=0;L<LETTERS.length;L++){ const d=Math.abs(x-LETTERS[L].barX); if(d<best){best=d;b=L;} } return b; };
+  const nearestBarX = x => { let b=0,best=1e9; for(let L=0;L<LETTERS.length;L++){ const bx=LETTERS[L].evenX!==undefined?LETTERS[L].evenX:LETTERS[L].barX; const d=Math.abs(x-bx); if(d<best){best=d;b=L;} } return b; };
 
   let t0 = performance.now();
   const smooth = t => t<=0 ? 0 : t>=1 ? 1 : t*t*(3-2*t);   // smoothstep easing
@@ -532,6 +539,9 @@
 
     let morphTop = 1 - smooth((since-MORPH_S)/(MORPH_E-MORPH_S));   // 1 = bars … 0 = text
     if(reduced) morphTop = 0;
+    // bars start EVENLY spaced and slide to their true letter positions as the morph begins
+    const spread  = reduced ? 1 : smooth((since-(MORPH_S-0.4))/(MORPH_E-(MORPH_S-0.4)));  // 0 = even … 1 = words
+    const barXOf  = Lt => Lt.evenX!==undefined ? lerpf(Lt.evenX, Lt.barX, spread) : Lt.barX;
     // crisp-text resolve: the dots sharpen into real Geist text at the end
     const topReveal = reduced ? 1 : smooth((since-(MORPH_E-0.3))/0.7);    // "You talk." dots -> solid
     const typeProg  = reduced ? 1 : smooth((since-TYPE_S)/(TYPE_E-TYPE_S)); // "It types." types in
@@ -568,14 +578,15 @@
         // then each letter ROTATES 90° on its own vertical axis to become readable.
         const Lt = LETTERS[p.li] || {barX:p.hx, phase:0, freq:1};
         const theta = morphTop * (Math.PI/2);              // 90deg edge-on(line) -> 0deg face-on(letter)
-        gx = Lt.barX + (p.hx - Lt.barX)*Math.cos(theta);   // collapse to a vertical line, then open to the letter
+        const bx0 = barXOf(Lt);                            // even-spaced early, true letter X as it separates
+        gx = bx0 + (p.hx - bx0)*Math.cos(theta);           // collapse to a vertical line, then open to the letter
         gy = p.hy;                                          // y FIXED at the letter -> clean Y-axis rotation (no swoop)
-        gz = -(p.hx - Lt.barX) * Math.sin(theta) * 0.6;    // proper Y-rotation depth (reversed = clockwise)
+        gz = -(p.hx - bx0) * Math.sin(theta) * 0.6;        // proper Y-rotation depth (reversed = clockwise)
         hueDraw = lerpf(p.h, BAR_HUE, morphTop);           // ONE solid colour for every bar
         const baseVis = reduced ? 0.85 : 0.22 + 0.63*Math.min(1, since*1.6);
         if(!reduced && since < ENTER){                     // suck-in: funnel into the NEAREST bar's base
           const FB = LETTERS[p.fb] || Lt;
-          const baseX = FB.barX + (p.barU-0.5)*BAR_W;          // spread across that bar's width
+          const baseX = barXOf(FB) + (p.barU-0.5)*BAR_W;       // spread across that (evenly-spaced) bar's width
           const baseY = TOP_BASE + REST/2 - p.barV*9;          // pile at the very BASE of the bar
           const SPREAD = 0.62, DUR = 0.42;
           const local = (since/ENTER - p.tin*SPREAD) / DUR;
@@ -633,7 +644,7 @@
       ctx.shadowColor = 'rgba(110,231,240,0.5)'; ctx.shadowBlur = 14*cz;
       ctx.fillStyle = 'hsl(190,96%,70%)';
       for(let L=0; L<LETTERS.length; L++){
-        const Lt = LETTERS[L], bw = BAR_W*cz, bx = cx + Lt.barX*cz - bw/2;
+        const Lt = LETTERS[L], bw = BAR_W*cz, bx = cx + barXOf(Lt)*cz - bw/2;
         let h, top;
         if(since < ENTER){ h = REST*fillFrac*cz; top = baseline - h; }      // grow bottom -> top
         else { h = barHeightFor(Lt)*cz; top = (cyC + TOP_BASE*cz) - h/2; }   // bounce, centred
