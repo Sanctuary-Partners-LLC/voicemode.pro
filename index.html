@@ -22,11 +22,14 @@
     --maxw:1180px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:var(--bg);color:var(--ink);}
+  /* clip horizontal overflow on BOTH html and body. overflow-x:hidden on body alone
+     propagates to html on iOS Safari and still scrolls; `clip` stops the scroll without
+     creating a scroll container, so the showcase's position:sticky keeps working. The
+     .showcase-head::before full-bleed (left/right:-100vw) is what overflows — this clips it. */
+  html,body{background:var(--bg);color:var(--ink);overflow-x:clip;}
   body{
     font-family:"Geist",system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
-    overflow-x:hidden;
     line-height:1.5;
   }
   ::selection{background:var(--violet);color:#0a0a0c;}
